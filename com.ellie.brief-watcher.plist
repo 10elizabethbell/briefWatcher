@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ellie.brief-watcher</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/ellie/.local/bin/brief-watcher.sh</string>
+  </array>
+  <!-- Fires when a prospect folder is added/removed in ~/Projects/freelance -->
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/ellie/Projects/freelance</string>
+  </array>
+  <!-- Backstop: catches briefs written after their folder was created -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/ellie/Library/Logs/brief-watcher.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/ellie/Library/Logs/brief-watcher.log</string>
+</dict>
+</plist>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brief Watcher</title>
+<meta name="description" content="How Muse prospect briefs become Claude Code pitch-site builds, automatically.">
+<style>
+  :root {
+    --bg: #f7f5f1; --surface: #ffffff; --text: #1d1b18; --muted: #6b655c;
+    --line: #e4dfd6; --accent: #b4561f; --code-bg: #f0ece5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151412; --surface: #1e1c19; --text: #ece8e1; --muted: #a29b90;
+      --line: #34302a; --accent: #e38a4f; --code-bg: #262320;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 56px 16px 80px; }
+  h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); font-size: 1.1rem; margin: 0 0 40px; }
+  h2 { font-size: 1.25rem; margin: 48px 0 12px; }
+  code, pre { font: 0.88em/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  ol.flow { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  ol.flow li {
+    counter-increment: step; position: relative; padding: 14px 16px 14px 56px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px;
+  }
+  ol.flow li::before {
+    content: counter(step); position: absolute; left: 16px; top: 14px;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--bg);
+    font-weight: 700; font-size: 0.85rem; display: grid; place-items: center;
+  }
+  ol.flow b { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td:first-child { white-space: nowrap; }
+  ul { padding-left: 20px; }
+  a { color: var(--accent); }
+  footer { margin-top: 56px; color: var(--muted); font-size: 0.9rem; }
+  @media (max-width: 560px) { td:first-child { white-space: normal; } h1 { font-size: 1.8rem; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Brief Watcher</h1>
+  <p class="lede">Muse researches a local business and writes a brief. A launchd agent picks it up and opens an interactive Claude Code session in Ghostty that builds the pitch site to 60%.</p>
+
+  <h2>Pipeline</h2>
+  <ol class="flow">
+    <li><b>Muse writes the brief</b>It creates <code>~/Projects/freelance/&lt;camelCase&gt;/</code> and puts <code>brief.md</code> directly inside it. That file is the only one Muse writes.</li>
+    <li><b>launchd wakes the watcher</b>It runs <code>brief-watcher.sh</code> when a folder is added to <code>~/Projects/freelance</code>, every 5 minutes, and at login.</li>
+    <li><b>The watcher checks each brief</b>It skips any folder that has a <code>.claude-claimed</code> marker, and any brief changed in the last 60 seconds (Muse may still be writing it).</li>
+    <li><b>A Ghostty tab opens</b>Through Ghostty's AppleScript, it opens a new tab in that folder and types <code>claude "/pitch-site …"</code> into the login shell. No flags are passed, so the session uses the usual settings.</li>
+    <li><b>The folder is claimed</b>The watcher writes <code>.claude-claimed</code> and shows a macOS notification.</li>
+    <li><b>The pitch-site skill builds</b>The session builds the site unattended to 60%, writes <code>HANDOFF.md</code>, and pushes to a private repo.</li>
+    <li><b>The build marks itself done</b>The skill writes <code>.pitch-site-done</code> (an ISO timestamp and the repo URL) and posts a "60% build pushed" notification.</li>
+  </ol>
+
+  <h2>Files in a prospect folder</h2>
+  <table>
+    <thead><tr><th>File</th><th>Written by</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>brief.md</code></td><td>Muse</td><td>The build contract. <code>BRIEF.md</code> also works. Nobody else may delete, rename or rewrite it.</td></tr>
+      <tr><td><code>.claude-claimed</code></td><td>Watcher</td><td>Claude has picked this folder up. Delete it to trigger a rebuild.</td></tr>
+      <tr><td><code>HANDOFF.md</code></td><td>pitch-site</td><td>Assumptions, gaps and open questions for the last 40%.</td></tr>
+      <tr><td><code>.pitch-site-done</code></td><td>pitch-site</td><td>Build pushed. Line 1 is a timestamp and line 2 is the repo URL.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Rules for Muse</h2>
+  <ul>
+    <li>Write the brief in one go. The build starts once the brief has been unchanged for 60 seconds, and later edits won't reach it. Safest: write <code>brief.md.tmp</code>, then <code>mv</code> it to <code>brief.md</code>.</li>
+    <li>Don't write a <code>TRIGGER.md</code>. The skill already covers what it said.</li>
+    <li>Never touch <code>.claude-claimed</code>.</li>
+    <li>Leave the folder alone after handoff. The build session owns it from then on.</li>
+  </ul>
+
+  <h2>Operating it</h2>
+<pre><code># start
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ellie.brief-watcher.plist
+# stop
+launchctl bootout gui/$(id -u)/com.ellie.brief-watcher
+# log
+tail -f ~/Library/Logs/brief-watcher.log
+# rebuild one prospect
+rm ~/Projects/freelance/&lt;prospect&gt;/.claude-claimed</code></pre>
+  <p>The first run asks macOS for permission to control Ghostty (Automation). Approve it once.</p>
+
+  <h2>Source</h2>
+  <p><a href="https://github.com/10elizabethbell/briefWatcher/blob/main/brief-watcher.sh"><code>brief-watcher.sh</code></a> is the watcher. <a href="https://github.com/10elizabethbell/briefWatcher/blob/main/com.ellie.brief-watcher.plist"><code>com.ellie.brief-watcher.plist</code></a> is the launchd agent; copy it to <code>~/Library/LaunchAgents/</code>. The script is symlinked from <code>~/.local/bin/brief-watcher.sh</code>.</p>
+
+  <footer>Ellie · freelance pitch-site pipeline</footer>
+</main>
+</body>
+</html>
