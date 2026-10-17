@@ -12,9 +12,21 @@ PROMPT="/pitch-site Muse dropped BRIEF.md in this folder. Build the pitch site f
 
 log() { echo "$(date '+%F %T') $*"; }
 
-# One run at a time (WatchPaths and StartInterval can fire together).
-mkdir "$LOCK" 2>/dev/null || { log "another run holds $LOCK; skipping"; exit 0; }
-trap 'rmdir "$LOCK"' EXIT
+# One run at a time (WatchPaths and StartInterval can fire together). The lock
+# holds its owner's PID; a run that died without cleaning up (e.g. fork failure
+# under process pressure) leaves a stale lock, which the next run reclaims.
+if ! mkdir "$LOCK" 2>/dev/null; then
+  owner=$(cat "$LOCK/pid" 2>/dev/null)
+  if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+    log "run $owner holds $LOCK; skipping"
+    exit 0
+  fi
+  log "reclaiming stale lock (owner ${owner:-unknown} is gone)"
+  rm -rf "$LOCK"
+  mkdir "$LOCK" 2>/dev/null || { log "lost lock race; skipping"; exit 0; }
+fi
+echo $$ > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
 
 open_tab() {
   /usr/bin/osascript - "$1" "$2" <<'APPLESCRIPT'
